@@ -26,3 +26,4 @@ for molecule in molecules:
         print(fh.read())
 ```
 		
+A longer and more detailed example file is provided in `test_atb_api.py`.
