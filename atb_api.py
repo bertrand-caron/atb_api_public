@@ -56,9 +56,10 @@ class Molecules(API):
     def __init__(self, api):
         self.api = api
         self.download_urls = {
-            'pdb': ( self.api.host + '/download.py', dict(outputType='top', dbfile='pdb_allatom_optimised') ),
-            'yml': ( self.api.host + '/api/current/molecules/generate_mol_data.py', dict() ),
-            'mtb_ua': ( self.api.host + '/download.py', dict(outputType='top', file='mtb_uniatom', ffVersion="54A7") ),
+            'pdb': ( 'download_file', dict(outputType='top', dbfile='pdb_allatom_optimised') ),
+            'yml': ( 'generate_mol_data', dict() ),
+            'mtb_aa': ( 'download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7") ),
+            'mtb_ua': ( 'download_file', dict(outputType='top', file='mtb_uniatom', ffVersion="54A7") ),
         }
 
     def url(self, api_endpoint):
@@ -72,7 +73,8 @@ class Molecules(API):
     def download_file(self, fnme=None, format=None, molid=None):
         if not (fnme and format): return
         parameters = dict(molid=molid)
-        url, extra_parameters = self.download_urls[format]
+        api_endpoint, extra_parameters = self.download_urls[format]
+        url = self.url(api_endpoint)
         response = self.api.safe_urlopen(url, data=dict(parameters.items() + extra_parameters.items()), method='GET')
         with open(fnme, 'w') as fh:
             fh.write( response.read() )
