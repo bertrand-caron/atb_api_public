@@ -56,7 +56,7 @@ class Molecules(API):
     def __init__(self, api):
         self.api = api
         self.download_urls = {
-            'pdb': ( 'download_file', dict(outputType='top', dbfile='pdb_allatom_optimised') ),
+            'pdb': ( 'download_file', dict(outputType='top', file='pdb_allatom_optimised', ffVersion="54A7") ),
             'yml': ( 'generate_mol_data', dict() ),
             'mtb_aa': ( 'download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7") ),
             'mtb_ua': ( 'download_file', dict(outputType='top', file='mtb_uniatom', ffVersion="54A7") ),
