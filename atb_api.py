@@ -13,7 +13,7 @@ def stderr_write(a_str):
 
 class API(object):
 
-    HOST = 'http://compbio.biosci.uq.edu.au/atb'
+    HOST = 'https://atb.uq.edu.au'
     TIMEOUT = 45
 
     def safe_urlopen(self, url, data={}, method='GET'):
@@ -30,7 +30,11 @@ class API(object):
             if self.debug: print 'Querying: {url}'.format(url=url)
             response = urllib2.urlopen(url, timeout=self.timeout, data=urlencode(data) if data else None)
         except Exception, e:
-            stderr_write("Failed opening url: {0}".format(url))
+            stderr_write("Failed opening url: {0}{1}{2}".format(
+                url,
+                '?' if data else '',
+                urlencode(data),
+            ))
             if e and 'fp' in e.__dict__: stderr_write( "Response was: {0}".format(e.fp.read()) )
             raise e
         return response
@@ -111,6 +115,7 @@ class ATB_Mol(object):
         self.common_name = molecule_dict['common_name']
         self.inchi = molecule_dict['InChI']
         self.exp_solv_free_energy = molecule_dict['exp_solv_free_energy']
+        self.curation_trust = molecule_dict['curation_trust']
 
     def download_file(self, fnme=None, format=None):
         self.api.Molecules.download_file(fnme=fnme, format=format, molid=self.molid)
@@ -125,6 +130,9 @@ class ATB_Mol(object):
 if __name__ == '__main__':
     api = API(api_token='<put your token here>', debug=True)
 
-    print api.Molecules.search(any='water', curation_trust=0)
+    print api.Molecules.search(any='cyclohexane', curation_trust=0)
+    print api.Molecules.search(any='cyclohexane', curation_trust='0,2')
+    mols = api.Molecules.search(any='cyclohexane', curation_trust='0,2')
+    print [mol.curation_trust for mol in mols]
 
 # 
