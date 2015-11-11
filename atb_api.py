@@ -33,7 +33,7 @@ class API(object):
             stderr_write("Failed opening url: {0}{1}{2}".format(
                 url,
                 '?' if data else '',
-                urlencode(data),
+                urlencode(data) if data else '',
             ))
             if e and 'fp' in e.__dict__: stderr_write( "Response was: {0}".format(e.fp.read()) )
             raise e
