@@ -1,6 +1,7 @@
 import urllib2
 from urllib import urlencode
 import yaml
+import json
 from copy import deepcopy
 from sys import stderr
 import inspect
@@ -11,13 +12,24 @@ INCORRECT_VALUE = Exception('Incorrect value')
 def stderr_write(a_str):
     stderr.write('API Client Debug: ' + a_str + '\n')
 
+def serializer(api_format):
+    if api_format == 'json':
+        serializer = json.loads
+    elif api_format == 'yaml':
+        serializer = yaml.load
+    else:
+        raise Exception('Incorrect API serialization format.')
+    return serializer
+
 class API(object):
 
     HOST = 'https://atb.uq.edu.au'
     TIMEOUT = 45
+    API_FORMAT = 'yaml'
 
     def safe_urlopen(self, url, data={}, method='GET'):
         data['api_token'] = self.api_token
+        data['api_format'] = self.api_format
         try:
             if method == 'GET':
                 url = url + '?' + urlencode(data)
@@ -39,12 +51,14 @@ class API(object):
             raise e
         return response
 
-    def __init__(self, host=HOST, api_token=None, debug=False, timeout=TIMEOUT):
+    def __init__(self, host=HOST, api_token=None, debug=False, timeout=TIMEOUT, api_format=API_FORMAT):
         self.host = host
         self.api_token = api_token
+        self.api_format = api_format
         self.debug = debug
         self.timeout = timeout
         self.Molecules = Molecules(self)
+        self.serializer = serializer(api_format)
 # 
 
 # 
@@ -71,7 +85,7 @@ class Molecules(API):
 
     def search(self, **kwargs):
         response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='GET')
-        data = yaml.load(response.read())
+        data = self.api.serializer(response.read())
         return map(lambda m: ATB_Mol(self.api, m), data['molecules'])
 
     def download_file(self, fnme=None, format=None, molid=None):
@@ -88,7 +102,7 @@ class Molecules(API):
     def molid(self, molid=None):
         parameters = dict(molid=molid)
         response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=parameters, method='GET')
-        data = yaml.load(response.read())
+        data = self.api.serializer(response.read())
         return ATB_Mol(self.api, data['molecule'])
 
 # 
@@ -128,7 +142,7 @@ class ATB_Mol(object):
         return yaml.dump(self_dict)
 
 if __name__ == '__main__':
-    api = API(api_token='<put your token here>', debug=True)
+    api = API(api_token='<put your token here>', debug=True, api_format='json')
 
     print api.Molecules.search(any='cyclohexane', curation_trust=0)
     print api.Molecules.search(any='cyclohexane', curation_trust='0,2')
