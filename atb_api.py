@@ -2,6 +2,7 @@ import urllib2
 from urllib import urlencode
 import yaml
 import json
+import pickle
 from copy import deepcopy
 from sys import stderr
 import inspect
@@ -17,6 +18,8 @@ def serializer(api_format):
         serializer = json.loads
     elif api_format == 'yaml':
         serializer = yaml.load
+    elif api_format == 'pickle':
+        serializer = pickle.loads
     else:
         raise Exception('Incorrect API serialization format.')
     return serializer
@@ -142,7 +145,7 @@ class ATB_Mol(object):
         return yaml.dump(self_dict)
 
 if __name__ == '__main__':
-    api = API(api_token='<put your token here>', debug=True, api_format='json')
+    api = API(api_token='<put your token here>', debug=True, api_format='pickle')
 
     print api.Molecules.search(any='cyclohexane', curation_trust=0)
     print api.Molecules.search(any='cyclohexane', curation_trust='0,2')
