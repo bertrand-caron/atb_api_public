@@ -131,7 +131,7 @@ class ATB_Mol(object):
         self.iupac = molecule_dict['iupac']
         self.common_name = molecule_dict['common_name']
         self.inchi = molecule_dict['InChI']
-        self.exp_solv_free_energy = molecule_dict['exp_solv_free_energy']
+        self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
         self.curation_trust = molecule_dict['curation_trust']
 
     def download_file(self, fnme=None, format=None):
