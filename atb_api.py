@@ -77,7 +77,8 @@ class Molecules(API):
     def __init__(self, api):
         self.api = api
         self.download_urls = {
-            'pdb': ( 'download_file', dict(outputType='top', file='pdb_allatom_optimised', ffVersion="54A7") ),
+            'pdb_aa': ( 'download_file', dict(outputType='top', file='pdb_allatom_optimised', ffVersion="54A7") ),
+            'pdb_ua': ( 'download_file', dict(outputType='top', file='pdb_uniatom_optimised', ffVersion="54A7") ),
             'yml': ( 'generate_mol_data', dict() ),
             'mtb_aa': ( 'download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7") ),
             'mtb_ua': ( 'download_file', dict(outputType='top', file='mtb_uniatom', ffVersion="54A7") ),
@@ -91,14 +92,28 @@ class Molecules(API):
         data = self.api.serializer(response.read())
         return map(lambda m: ATB_Mol(self.api, m), data['molecules'])
 
-    def download_file(self, fnme=None, format=None, molid=None):
-        if not (fnme and format): return
-        parameters = dict(molid=molid)
-        api_endpoint, extra_parameters = self.download_urls[format]
-        url = self.url(api_endpoint)
-        response = self.api.safe_urlopen(url, data=dict(parameters.items() + extra_parameters.items()), method='GET')
-        with open(fnme, 'w') as fh:
-            fh.write( response.read() )
+    def download_file(self, **kwargs):
+
+        def write_to_file_or_return(response):
+            # Either write response to file 'fnme', or return its content
+            if 'fnme' in kwargs:
+                fnme = kwargs['fnme']
+                with open(fnme, 'w') as fh:
+                    fh.write( response.read() )
+            else:
+                return response.read()
+
+        if all([ key in kwargs for key in ('atb_format', 'molid')]):
+            # Construct donwload.py request based on requested file format
+            atb_format, molid = kwargs['atb_format'], kwargs['molid']
+            parameters = dict(molid=molid)
+            api_endpoint, extra_parameters = self.download_urls[atb_format]
+            url = self.url(api_endpoint)
+            response = self.api.safe_urlopen(url, data=dict(parameters.items() + extra_parameters.items()), method='GET')
+        else:
+            # Forward all the keyword arguments to download_file.py
+            response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='GET')
+        return write_to_file_or_return(response)
 
 # 
 
@@ -134,8 +149,9 @@ class ATB_Mol(object):
         self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
         self.curation_trust = molecule_dict['curation_trust']
 
-    def download_file(self, fnme=None, format=None):
-        self.api.Molecules.download_file(fnme=fnme, format=format, molid=self.molid)
+    def download_file(self, **kwargs):
+        if 'molid' in kwargs: del kwargs['molid']
+        return self.api.Molecules.download_file(molid=self.molid, **kwargs)
 
 # 
 

@@ -5,7 +5,7 @@ molecules = api.Molecules.search(any='ethanol')
 for molecule in molecules:
     print(molecule.inchi)
     pdb_path = '{molid}.pdb'.format(molid=molecule.molid)
-    molecule.download_file(fnme=pdb_path, format='pdb')
+    molecule.download_file(fnme=pdb_path, atb_format='pdb')
 
     with open(pdb_path) as fh:
         pdb_str = fh.read()
