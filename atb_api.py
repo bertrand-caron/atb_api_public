@@ -82,6 +82,8 @@ class Molecules(API):
             'yml': ( 'generate_mol_data', dict() ),
             'mtb_aa': ( 'download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7") ),
             'mtb_ua': ( 'download_file', dict(outputType='top', file='mtb_uniatom', ffVersion="54A7") ),
+            'itp_aa': ( 'download_file', dict(outputType='top', file='rtp_allatom', ffVersion="54A7") ),
+            'itp_ua': ( 'download_file', dict(outputType='top', file='rtp_uniatom', ffVersion="54A7") ),
         }
 
     def url(self, api_endpoint):
