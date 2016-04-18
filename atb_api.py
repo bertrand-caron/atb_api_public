@@ -150,6 +150,7 @@ class ATB_Mol(object):
         self.inchi = molecule_dict['InChI']
         self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
         self.curation_trust = molecule_dict['curation_trust']
+        self.pdb_hetId = molecule_dict['pdb_hetId']
 
     def download_file(self, **kwargs):
         if 'molid' in kwargs: del kwargs['molid']
