@@ -164,7 +164,7 @@ class ATB_Mol(object):
         return yaml.dump(self_dict)
 
 if __name__ == '__main__':
-    api = API(api_token='<put your token here>', debug=True, api_format='pickle')
+    api = API(api_token='<put your token here>', debug=True, api_format='pickle', host='http://scmb-atb.biosci.uq.edu.au/atb-uqbcaron')
 
     print api.Molecules.search(any='cyclohexane', curation_trust=0)
     print api.Molecules.search(any='cyclohexane', curation_trust='0,2')
