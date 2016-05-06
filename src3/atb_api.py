@@ -100,7 +100,7 @@ class Molecules(API):
             # Either write response to file 'fnme', or return its content
             if 'fnme' in kwargs:
                 fnme = kwargs['fnme']
-                with open(fnme, 'w') as fh:
+                with open(fnme, 'wb') as fh:
                     fh.write( response.read() )
             else:
                 return response.read()
