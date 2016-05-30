@@ -68,6 +68,11 @@ class API(object):
 
 # 
 
+
+# 
+
+# 
+
 # 
 
 # 
@@ -130,7 +135,7 @@ class Molecules(API):
     def submit(self, **kwargs):
         assert all([ arg in kwargs for arg in ('netcharge', 'pdb', 'public', 'moltype') ])
         response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
-        return response.read()
+        return self.api.serializer(response.read())
 
     def submit_TI(self, **kwargs):
         assert all([ arg in kwargs for arg in ('fe_method', 'fe_solvent', 'unique_id', 'molid', 'target_uncertainty') ])
@@ -151,6 +156,8 @@ class ATB_Mol(object):
         self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
         self.curation_trust = molecule_dict['curation_trust']
         self.pdb_hetId = molecule_dict['pdb_hetId']
+        self.netcharge = molecule_dict['netcharge']
+#       
 
     def download_file(self, **kwargs):
         if 'molid' in kwargs: del kwargs['molid']
