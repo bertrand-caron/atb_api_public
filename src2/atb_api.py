@@ -1,3 +1,4 @@
+from __future__ import print_function
 import urllib2
 from urllib import urlencode
 import yaml
@@ -6,6 +7,7 @@ import pickle
 from copy import deepcopy
 from sys import stderr
 import inspect
+from sys import stderr
 
 MISSING_VALUE = Exception('Missing value')
 INCORRECT_VALUE = Exception('Incorrect value')
@@ -42,7 +44,9 @@ class API(object):
                 data = data
             else:
                 raise Exception('Unsupported HTTP method: {0}'.format(method))
-            if self.debug: print 'Querying: {url}'.format(url=url)
+            if self.debug:
+                print('Querying: {url}'.format(url=url), file=stderr)
+
             response = urllib2.urlopen(url, timeout=self.timeout, data=urlencode(data) if data else None)
         except Exception, e:
             stderr_write("Failed opening url: {0}{1}{2}".format(
@@ -175,17 +179,17 @@ class ATB_Mol(object):
 if __name__ == '__main__':
     api = API(api_token='<put your token here>', debug=True, api_format='yaml', host='https://atb.uq.edu.au')
 
-    print api.Molecules.search(any='cyclohexane', curation_trust=0)
-    print api.Molecules.search(any='cyclohexane', curation_trust='0,2')
+    print(api.Molecules.search(any='cyclohexane', curation_trust=0))
+    print(api.Molecules.search(any='cyclohexane', curation_trust='0,2'))
     mols = api.Molecules.search(any='cyclohexane', curation_trust='0,2')
-    print [mol.curation_trust for mol in mols]
+    print([mol.curation_trust for mol in mols])
 
     water_molecules = api.Molecules.search(formula='H2O')
-    print water_molecules
+    print(water_molecules)
     for mol in water_molecules:
-        print mol.iupac, mol.molid
-    print water_molecules[0].download_file(fnme='test.mtb', atb_format='mtb_aa')
-    print api.Molecules.download_file(atb_format='yml', molid=21)
-    print api.Molecules.download_file(atb_format='mtb_aa', molid=21)
+        print(mol.iupac, mol.molid)
+    print(water_molecules[0].download_file(fnme='test.mtb', atb_format='mtb_aa'))
+    print(api.Molecules.download_file(atb_format='yml', molid=21))
+    print(api.Molecules.download_file(atb_format='mtb_aa', molid=21))
 
 # 
