@@ -81,6 +81,8 @@ class API(object):
 
 # 
 
+# 
+
 class Molecules(API):
 
     def __init__(self, api):
@@ -163,6 +165,7 @@ class ATB_Mol(object):
         self.curation_trust = molecule_dict['curation_trust']
         self.pdb_hetId = molecule_dict['pdb_hetId']
         self.netcharge = molecule_dict['netcharge']
+        self.formula = molecule_dict['formula']
 #       
 
     def download_file(self, **kwargs):
