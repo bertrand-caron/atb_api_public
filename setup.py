@@ -14,4 +14,5 @@ setup(
     author_email='b.caron@uq.edu.au',
     py_modules=['atb_api'],
     package_dir=package_dir,
+    requires=['yaml', 'json'],
 )
