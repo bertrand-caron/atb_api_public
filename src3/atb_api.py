@@ -1,5 +1,6 @@
 
-import urllib.request, urllib.error, urllib.parse
+from urllib.request import urlopen
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 import yaml
 import json
@@ -47,7 +48,7 @@ class API(object):
             if self.debug:
                 print('Querying: {url}'.format(url=url), file=stderr)
 
-            response = urllib.request.urlopen(url, timeout=self.timeout, data=urlencode(data) if data else None)
+            response = urlopen(url, timeout=self.timeout, data=urlencode(data) if data else None)
         except Exception as e:
             stderr_write("Failed opening url: {0}{1}{2}".format(
                 url,
@@ -166,6 +167,7 @@ class ATB_Mol(object):
         self.pdb_hetId = molecule_dict['pdb_hetId']
         self.netcharge = molecule_dict['netcharge']
         self.formula = molecule_dict['formula']
+        self.is_finished = molecule_dict['is_finished']
 #       
 
     def download_file(self, **kwargs):
