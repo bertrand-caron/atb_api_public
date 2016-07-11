@@ -118,11 +118,11 @@ class Molecules(API):
 
         if all([ key in kwargs for key in ('atb_format', 'molid')]):
             # Construct donwload.py request based on requested file format
-            atb_format, molid = kwargs['atb_format'], kwargs['molid']
-            parameters = dict(molid=molid)
+            atb_format = kwargs['atb_format']
+            call_kwargs = dict([(key, value) for (key, value) in kwargs.items() if key not in ('atb_format',)])
             api_endpoint, extra_parameters = self.download_urls[atb_format]
             url = self.url(api_endpoint)
-            response = self.api.safe_urlopen(url, data=dict(parameters.items() + extra_parameters.items()), method='GET')
+            response = self.api.safe_urlopen(url, data=dict(call_kwargs.items() + extra_parameters.items()), method='GET')
             deserializer = (self.api.deserializer if atb_format == 'yml' else lambda x: x)
         else:
             # Forward all the keyword arguments to download_file.py
