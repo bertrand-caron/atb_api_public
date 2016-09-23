@@ -131,6 +131,10 @@ class Molecules(API):
             deserializer = lambda x: x
         return write_to_file_or_return(response, deserializer)
 
+    def duplicated_inchis(self, **kwargs):
+        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='GET')
+        return self.api.deserializer(response.read())['InChIs']
+
 # 
 
     def molid(self, molid=None):
