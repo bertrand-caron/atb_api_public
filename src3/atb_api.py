@@ -32,6 +32,22 @@ class API(object):
     HOST = 'https://atb.uq.edu.au'
     TIMEOUT = 45
     API_FORMAT = 'yaml'
+    ENCODING = 'utf-8'
+
+    def encoded(self, something):
+        if type(something) == dict:
+            return {self.encoded(key): self.encoded(value) for (key, value) in something.items()}
+        elif type(something) in (str, int):
+            return something.encode(self.ENCODING)
+        elif something == None:
+            return something
+        else:
+            raise Exception(
+                '''Can't uncode object of type {0}: {1}'''.format(
+                    type(something),
+                    something,
+                )
+            )
 
     def safe_urlopen(self, url, data={}, method='GET'):
         data['api_token'] = self.api_token
@@ -48,7 +64,7 @@ class API(object):
             if self.debug:
                 print('Querying: {url}'.format(url=url), file=stderr)
 
-            response = urlopen(url, timeout=self.timeout, data=urlencode(data) if data else None)
+            response = urlopen(url, timeout=self.timeout, data=self.encoded(urlencode(data)) if data else None)
         except Exception as e:
             stderr_write("Failed opening url: {0}{1}{2}".format(
                 url,
@@ -82,6 +98,34 @@ class API(object):
 
 # 
 
+class RMSD(API):
+
+    def __init__(self, api):
+        self.api = api
+
+    def url(self, api_endpoint):
+        return self.api.host + '/api/current/' + self.__class__.__name__.lower() + '/' + api_endpoint + '.py'
+
+    def align(self, **kwargs):
+        assert 'molids' in kwargs or ('reference_pdb' in kwargs and 'pdb_0' in kwargs), MISSING_VALUE
+        if 'molids' in kwargs:
+            if type(kwargs['molids']) in (list, tuple):
+                kwargs['molids'] = ','.join(map(str, kwargs['molids']))
+            else:
+                assert ',' in kwargs['molids']
+        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='POST')
+        return self.api.deserializer(response.read())
+
+    def matrix(self, **kwargs):
+        assert 'molids' in kwargs or ('reference_pdb' in kwargs and 'pdb_0' in kwargs), MISSING_VALUE
+        if 'molids' in kwargs:
+            if type(kwargs['molids']) in (list, tuple):
+                kwargs['molids'] = ','.join(map(str, kwargs['molids']))
+            else:
+                assert ',' in kwargs['molids']
+        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='POST')
+        return self.api.deserializer(response.read())
+
 # 
 
 class Molecules(API):
@@ -90,6 +134,7 @@ class Molecules(API):
         self.api = api
         self.download_urls = {
             'pdb_aa': ('download_file', dict(outputType='top', file='pdb_allatom_optimised', ffVersion="54A7"),),
+            'pdb_allatom_unoptimised': ('download_file', dict(outputType='top', file='pdb_allatom_unoptimised', ffVersion="54A7"),),
             'pdb_ua': ('download_file', dict(outputType='top', file='pdb_uniatom_optimised', ffVersion="54A7"),),
             'yml': ('generate_mol_data', dict(),),
             'mtb_aa': ('download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7"),),
@@ -112,7 +157,7 @@ class Molecules(API):
             # Either write response to file 'fnme', or return its content
             if 'fnme' in kwargs:
                 fnme = kwargs['fnme']
-                with open(fnme, 'wb') as fh:
+                with open(fnme, 'w') as fh:
                     fh.write( response.read() )
             else:
                 return deserializer(response.read())
@@ -134,6 +179,10 @@ class Molecules(API):
     def duplicated_inchis(self, **kwargs):
         response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='GET')
         return self.api.deserializer(response.read())['InChIs']
+
+    def generate_mol_data(self, **kwargs):
+        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='GET')
+        return self.api.deserializer(response.read())
 
 # 
 
@@ -178,6 +227,10 @@ class ATB_Mol(object):
         if 'molid' in kwargs: del kwargs['molid']
         return self.api.Molecules.download_file(molid=self.molid, **kwargs)
 
+    def generate_mol_data(self, **kwargs):
+        if 'molid' in kwargs: del kwargs['molid']
+        return self.api.Molecules.generate_mol_data(molid=self.molid, **kwargs)
+
 # 
 
     def __repr__(self):
@@ -185,8 +238,21 @@ class ATB_Mol(object):
         del self_dict['api']
         return yaml.dump(self_dict)
 
-if __name__ == '__main__':
+def test_api_client():
     api = API(api_token='<put your token here>', debug=True, api_format='yaml', host='https://atb.uq.edu.au')
+
+    TEST_RMSD = True
+    ETHANOL_MOLIDS = [15608, 23009, 26394]
+
+    if TEST_RMSD:
+        print(api.RMSD.matrix(molids=ETHANOL_MOLIDS))
+        print(api.RMSD.align(molids=ETHANOL_MOLIDS[0:2]))
+        print(
+            api.RMSD.align(
+                reference_pdb=api.Molecules.download_file(atb_format='pdb_aa', molid=ETHANOL_MOLIDS[0]),
+                pdb_0=api.Molecules.download_file(atb_format='pdb_aa', molid=ETHANOL_MOLIDS[1]),
+            ),
+        )
 
     print(api.Molecules.search(any='cyclohexane', curation_trust=0))
     print(api.Molecules.search(any='cyclohexane', curation_trust='0,2'))
@@ -197,8 +263,13 @@ if __name__ == '__main__':
     print(water_molecules)
     for mol in water_molecules:
         print(mol.iupac, mol.molid)
-    print(water_molecules[0].download_file(fnme='test.mtb', atb_format='mtb_aa'))
+    #print(water_molecules[0].download_file(fnme='test.mtb', atb_format='mtb_aa'))
     print(api.Molecules.download_file(atb_format='yml', molid=21))
-    print(api.Molecules.download_file(atb_format='mtb_aa', molid=21))
+    print(api.Molecules.download_file(atb_format='mtb_aa', molid=21, refresh_cache=True))
+
+    exit()
 
 # 
+
+if __name__ == '__main__':
+    test_api_client()
