@@ -76,13 +76,17 @@ class API(object):
         return response
 
     def __init__(self, host=HOST, api_token=None, debug=False, timeout=TIMEOUT, api_format=API_FORMAT):
+        # Attributes
         self.host = host
         self.api_token = api_token
         self.api_format = api_format
         self.debug = debug
         self.timeout = timeout
-        self.Molecules = Molecules(self)
         self.deserializer = deserializer(api_format)
+
+        # API namespaces
+        self.Molecules = Molecules(self)
+        self.RMSD = RMSD(self)
 # 
 
 # 
