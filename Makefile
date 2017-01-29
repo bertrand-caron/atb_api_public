@@ -1,10 +1,10 @@
 PYTHON_BIN_DIR = /usr/local/python35/bin
 
 install-user:
-	python setup.py install --user
+	python3 setup.py install --user
 
 install-sudo:
-	python setup.py install
+	python3 setup.py install
 
 src2: src2/atb_api.py
 .PHONY: src2
