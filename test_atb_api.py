@@ -12,6 +12,10 @@ for molecule in molecules:
         pdb_str = fh.read()
         print(pdb_str)
 
+print(api.Molecules.structure_search(structure_format='pdb', structure=pdb_str, netcharge='*'))
+
+print(api.Molecules.molid(molid=21))
+
 # This will and should fail, as we are trying to resubmit a molecule already in the database.
 try:
     print(api.Molecules.submit(pdb=pdb_str, netcharge=0, moltype='heteromolecule', public=True))
