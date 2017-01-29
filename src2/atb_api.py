@@ -1,6 +1,7 @@
+
 from __future__ import with_statement
 from __future__ import absolute_import
-from urllib2 import urlopen
+from urllib2 import urlopen, Request
 from urllib2 import HTTPError
 from urllib import urlencode
 import yaml
@@ -10,6 +11,8 @@ from copy import deepcopy
 from sys import stderr
 import inspect
 from sys import stderr
+from requests import post
+from tempfile import TemporaryFile
 from itertools import imap
 
 
@@ -19,16 +22,16 @@ INCORRECT_VALUE = Exception(u'Incorrect value')
 def stderr_write(a_str):
     stderr.write(u'API Client Debug: ' + a_str + u'\n')
 
-def deserializer(api_format):
+def deserializer_fct_for(api_format):
     if api_format == u'json':
-        deserializer = json.loads
+        deserializer_fct = json.loads
     elif api_format == u'yaml':
-        deserializer = yaml.load
+        deserializer_fct = yaml.load
     elif api_format == u'pickle':
-        deserializer = pickle.loads
+        deserializer_fct = pickle.loads
     else:
         raise Exception(u'Incorrect API serialization format.')
-    return deserializer
+    return deserializer_fct
 
 class API(object):
 
@@ -67,16 +70,52 @@ class API(object):
             if self.debug:
                 print >>stderr, u'Querying: {url}'.format(url=url)
 
-            response = urlopen(url, timeout=self.timeout, data=self.encoded(urlencode(data)) if data else None)
+            if method == u'POST' and any([isinstance(value, str) or u'read' in dir(value) for (key, value) in data.items()]):
+                def file_for(content):
+                    u'''Cast a content object to a file for request.post'''
+                    if u'read' in dir(content):
+                        return content
+                    else:
+                        file_handler = TemporaryFile(mode=u'w+b')
+                        file_handler.write(
+                            content if isinstance(content, str) else unicode(content).encode(),
+                        )
+                        file_handler.seek(0) # Rewind the files to future .read()
+                        return file_handler
+
+                files=dict(
+                    [
+                        (key, file_for(value))
+                        for (key, value) in data.items()
+                    ]
+                )
+
+                request = post(
+                    url,
+                    files=files,
+                )
+                response_content = request.text
+
+                if self.debug:
+                    print u'INFO: Will send binary data.'
+            else:
+                response = urlopen(
+                    Request(
+                        url,
+                        data=self.encoded(urlencode(data),) if data else None,
+                    ),
+                    timeout=self.timeout,
+                )
+                response_content = response.read()
         except Exception, e:
             stderr_write(u"Failed opening url: {0}{1}{2}".format(
                 url,
                 u'?' if data else u'',
                 urlencode(data) if data else u'',
             ))
-            if e and u'fp' in e.__dict__: stderr_write( u"Response was: {0}".format(e.fp.read()) )
+            #if e and 'fp' in e.__dict__: stderr_write( "Response was:\n\n{0}".format(e.fp.read().decode()) )
             raise e
-        return response
+        return response_content
 
     def __init__(self, host=HOST, api_token=None, debug=False, timeout=TIMEOUT, api_format=API_FORMAT):
         # Attributes
@@ -85,12 +124,19 @@ class API(object):
         self.api_format = api_format
         self.debug = debug
         self.timeout = timeout
-        self.deserializer = deserializer(api_format)
+        self.deserializer_fct = deserializer_fct_for(api_format)
 
         # API namespaces
         self.Molecules = Molecules(self)
         self.RMSD = RMSD(self)
 # 
+
+    def deserialize(self, an_object):
+        try:
+            return self.deserializer_fct(an_object)
+        except:
+            print an_object
+            raise
 
 # 
 
@@ -120,8 +166,8 @@ class RMSD(API):
                 kwargs[u'molids'] = u','.join(imap(unicode, kwargs[u'molids']))
             else:
                 assert u',' in kwargs[u'molids']
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'POST')
-        return self.api.deserializer(response.read())
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'POST')
+        return self.api.deserialize(response_content)
 
     def matrix(self, **kwargs):
         assert u'molids' in kwargs or (u'reference_pdb' in kwargs and u'pdb_0' in kwargs), MISSING_VALUE
@@ -130,8 +176,8 @@ class RMSD(API):
                 kwargs[u'molids'] = u','.join(imap(unicode, kwargs[u'molids']))
             else:
                 assert u',' in kwargs[u'molids']
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'POST')
-        return self.api.deserializer(response.read())
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'POST')
+        return self.api.deserialize(response_content)
 
 # 
 
@@ -154,20 +200,26 @@ class Molecules(API):
         return self.api.host + u'/api/current/' + self.__class__.__name__.lower() + u'/' + api_endpoint + u'.py'
 
     def search(self, **kwargs):
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
-        data = self.api.deserializer(response.read())
-        return [ATB_Mol(self.api, m) for m in data[u'molecules']]
+        return_type = kwargs[u'return_type'] if u'return_type' in kwargs else u'molecules'
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
+        data = self.api.deserialize(response_content)
+        if return_type == u'molecules':
+            return [ATB_Mol(self.api, m) for m in data[return_type]]
+        elif return_type == u'molids':
+            return data[return_type]
+        else:
+            raise Exception(u'Unknow return_type: {0}'.format(return_type))
 
     def download_file(self, **kwargs):
 
-        def write_to_file_or_return(response, deserializer):
+        def write_to_file_or_return(response_content, deserializer_fct):
             # Either write response to file 'fnme', or return its content
             if u'fnme' in kwargs:
                 fnme = kwargs[u'fnme']
-                with open(fnme, u'w') as fh:
-                    fh.write( response.read() )
+                with open(fnme, u'w' + (u'b' if isinstance(response_content, str) else u't')) as fh:
+                    fh.write(response_content)
             else:
-                return deserializer(response.read())
+                return deserializer_fct(response_content)
 
         if all([ key in kwargs for key in (u'atb_format', u'molid')]):
             # Construct donwload.py request based on requested file format
@@ -175,41 +227,41 @@ class Molecules(API):
             call_kwargs = dict([(key, value) for (key, value) in list(kwargs.items()) if key not in (u'atb_format',)])
             api_endpoint, extra_parameters = self.download_urls[atb_format]
             url = self.url(api_endpoint)
-            response = self.api.safe_urlopen(url, data=dict(list(call_kwargs.items()) + list(extra_parameters.items())), method=u'GET')
-            deserializer = (self.api.deserializer if atb_format == u'yml' else lambda x: x)
+            response_content = self.api.safe_urlopen(url, data=dict(list(call_kwargs.items()) + list(extra_parameters.items())), method=u'GET')
+            deserializer_fct = (self.api.deserializer_fct if atb_format == u'yml' else lambda x: x)
         else:
             # Forward all the keyword arguments to download_file.py
-            response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
-            deserializer = lambda x: x
-        return write_to_file_or_return(response, deserializer)
+            response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
+            deserializer_fct = lambda x: x
+        return write_to_file_or_return(response_content, deserializer_fct)
 
     def duplicated_inchis(self, **kwargs):
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
-        return self.api.deserializer(response.read())[u'InChIs']
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
+        return self.api.deserialize(response_content)[u'InChIs']
 
     def generate_mol_data(self, **kwargs):
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
-        return self.api.deserializer(response.read())
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
+        return self.api.deserialize(response_content)
 
 # 
 
     def molid(self, molid=None):
         parameters = dict(molid=molid)
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=parameters, method=u'GET')
-        data = self.api.deserializer(response.read())
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=parameters, method=u'GET')
+        data = self.api.deserialize(response_content)
         return ATB_Mol(self.api, data[u'molecule'])
 
 # 
 
     def submit(self, **kwargs):
         assert all([ arg in kwargs for arg in (u'netcharge', u'pdb', u'public', u'moltype') ])
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
-        return self.api.deserializer(response.read())
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
+        return self.api.deserialize(response_content)
 
     def submit_TI(self, **kwargs):
         assert all([ arg in kwargs for arg in (u'fe_method', u'fe_solvent', u'unique_id', u'molid', u'target_uncertainty') ])
-        response = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
-        return response.read()
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
+        return response_content
 
 # 
 
@@ -228,6 +280,7 @@ class ATB_Mol(object):
         self.netcharge = molecule_dict[u'netcharge']
         self.formula = molecule_dict[u'formula']
         self.is_finished = molecule_dict[u'is_finished']
+        self.rnme = molecule_dict[u'rnme']
 #       
 
     def download_file(self, **kwargs):
@@ -251,6 +304,8 @@ def test_api_client():
     TEST_RMSD = True
     ETHANOL_MOLIDS = [15608, 23009, 26394]
 
+# 
+
     if TEST_RMSD:
         print api.RMSD.matrix(molids=ETHANOL_MOLIDS)
         print api.RMSD.align(molids=ETHANOL_MOLIDS[0:2])
@@ -260,7 +315,7 @@ def test_api_client():
             )
 
     print api.Molecules.search(any=u'cyclohexane', curation_trust=0)
-    print api.Molecules.search(any=u'cyclohexane', curation_trust=u'0,2')
+    print api.Molecules.search(any=u'cyclohexane', curation_trust=u'0,2', return_type=u'molids')
     mols = api.Molecules.search(any=u'cyclohexane', curation_trust=u'0,2')
     print [mol.curation_trust for mol in mols]
 
