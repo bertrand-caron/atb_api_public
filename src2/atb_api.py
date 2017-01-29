@@ -251,17 +251,17 @@ class Molecules(API):
         data = self.api.deserialize(response_content)
         return ATB_Mol(self.api, data[u'molecule'])
 
+    def structure_search(self, **kwargs):
+        assert all([ arg in kwargs for arg in (u'structure', u'netcharge', u'structure_format') ])
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u"POST")
+        return self.api.deserialize(response_content)
+
 # 
 
     def submit(self, **kwargs):
         assert all([ arg in kwargs for arg in (u'netcharge', u'pdb', u'public', u'moltype') ])
         response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
         return self.api.deserialize(response_content)
-
-    def submit_TI(self, **kwargs):
-        assert all([ arg in kwargs for arg in (u'fe_method', u'fe_solvent', u'unique_id', u'molid', u'target_uncertainty') ])
-        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
-        return response_content
 
 # 
 
