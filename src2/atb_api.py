@@ -1,4 +1,3 @@
-
 from __future__ import with_statement
 from __future__ import absolute_import
 from urllib2 import urlopen, Request
@@ -13,28 +12,34 @@ import inspect
 from sys import stderr
 from requests import post
 from tempfile import TemporaryFile
+from typing import Any, List, Dict, Callable, Optional, Union, Tuple
 from itertools import imap
 
 
 MISSING_VALUE = Exception(u'Missing value')
 INCORRECT_VALUE = Exception(u'Incorrect value')
 
+ATB_MOLID = Union[unicode, int]
+
+ATB_OUTPUT = unicode
+
+API_RESPONSE = Dict[Any, Any]
+
 def stderr_write(a_str):
     stderr.write(u'API Client Debug: ' + a_str + u'\n')
 
 def deserializer_fct_for(api_format):
     if api_format == u'json':
-        deserializer_fct = json.loads
+        deserializer_fct = lambda x: json.loads(x)
     elif api_format == u'yaml':
-        deserializer_fct = yaml.load
+        deserializer_fct = lambda x: yaml.load(x)
     elif api_format == u'pickle':
-        deserializer_fct = pickle.loads
+        deserializer_fct = lambda x: pickle.loads(x)
     else:
         raise Exception(u'Incorrect API serialization format.')
     return deserializer_fct
 
 class API(object):
-
     HOST = u'https://atb.uq.edu.au'
     TIMEOUT = 45
     API_FORMAT = u'yaml'
@@ -55,7 +60,7 @@ class API(object):
                 )
             )
 
-    def safe_urlopen(self, url, data={}, method=u'GET'):
+    def safe_urlopen(self, url, data = {}, method = u'GET'):
         data[u'api_token'] = self.api_token
         data[u'api_format'] = self.api_format
         try:
@@ -106,7 +111,7 @@ class API(object):
                     ),
                     timeout=self.timeout,
                 )
-                response_content = response.read()
+                response_content = response.read().decode()
         except Exception, e:
             stderr_write(u"Failed opening url: {0}{1}{2}".format(
                 url,
@@ -117,7 +122,7 @@ class API(object):
             raise e
         return response_content
 
-    def __init__(self, host=HOST, api_token=None, debug=False, timeout=TIMEOUT, api_format=API_FORMAT):
+    def __init__(self, host = HOST, api_token = None, debug = False, timeout = TIMEOUT, api_format = API_FORMAT):
         # Attributes
         self.host = host
         self.api_token = api_token
@@ -137,6 +142,39 @@ class API(object):
         except:
             print an_object
             raise
+
+class ATB_Mol(object):
+    def __init__(self, api, molecule_dict):
+        self.api = api
+        self.molid = molecule_dict[u'molid']
+        self.n_atoms = molecule_dict[u'atoms']
+        self.has_TI = molecule_dict[u'has_TI']
+        self.iupac = molecule_dict[u'iupac']
+        self.common_name = molecule_dict[u'common_name']
+        self.inchi = molecule_dict[u'InChI']
+        self.experimental_solvation_free_energy = molecule_dict[u'experimental_solvation_free_energy']
+        self.curation_trust = molecule_dict[u'curation_trust']
+        self.pdb_hetId = molecule_dict[u'pdb_hetId']
+        self.netcharge = molecule_dict[u'netcharge']
+        self.formula = molecule_dict[u'formula']
+        self.is_finished = molecule_dict[u'is_finished']
+        self.rnme = molecule_dict[u'rnme']
+# 
+
+    def download_file(self, **kwargs):
+        if u'molid' in kwargs: del kwargs[u'molid']
+        return self.api.Molecules.download_file(molid=self.molid, **kwargs)
+
+    def generate_mol_data(self, **kwargs):
+        if u'molid' in kwargs: del kwargs[u'molid']
+        return self.api.Molecules.generate_mol_data(molid=self.molid, **kwargs)
+
+# 
+
+    def __repr__(self):
+        self_dict = deepcopy(self.__dict__)
+        del self_dict[u'api']
+        return yaml.dump(self_dict)
 
 # 
 
@@ -215,20 +253,21 @@ class Molecules(API):
         def write_to_file_or_return(response_content, deserializer_fct):
             # Either write response to file 'fnme', or return its content
             if u'fnme' in kwargs:
-                fnme = kwargs[u'fnme']
+                fnme = unicode(kwargs[u'fnme'])
                 with open(fnme, u'w' + (u'b' if isinstance(response_content, str) else u't')) as fh:
                     fh.write(response_content)
+                return None
             else:
                 return deserializer_fct(response_content)
 
-        if all([ key in kwargs for key in (u'atb_format', u'molid')]):
+        if all([key in kwargs for key in (u'atb_format', u'molid')]):
             # Construct donwload.py request based on requested file format
-            atb_format = kwargs[u'atb_format']
+            atb_format = unicode(kwargs[u'atb_format'])
             call_kwargs = dict([(key, value) for (key, value) in list(kwargs.items()) if key not in (u'atb_format',)])
             api_endpoint, extra_parameters = self.download_urls[atb_format]
             url = self.url(api_endpoint)
             response_content = self.api.safe_urlopen(url, data=dict(list(call_kwargs.items()) + list(extra_parameters.items())), method=u'GET')
-            deserializer_fct = (self.api.deserializer_fct if atb_format == u'yml' else lambda x: x)
+            deserializer_fct = (self.api.deserializer_fct if atb_format == u'yml' else (lambda x: x))
         else:
             # Forward all the keyword arguments to download_file.py
             response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
@@ -245,7 +284,7 @@ class Molecules(API):
 
 # 
 
-    def molid(self, molid=None):
+    def molid(self, molid = None):
         parameters = dict(molid=molid)
         response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=parameters, method=u'GET')
         data = self.api.deserialize(response_content)
@@ -264,39 +303,6 @@ class Molecules(API):
         return self.api.deserialize(response_content)
 
 # 
-
-class ATB_Mol(object):
-    def __init__(self, api, molecule_dict):
-        self.api = api
-        self.molid = molecule_dict[u'molid']
-        self.n_atoms = molecule_dict[u'atoms']
-        self.has_TI = molecule_dict[u'has_TI']
-        self.iupac = molecule_dict[u'iupac']
-        self.common_name = molecule_dict[u'common_name']
-        self.inchi = molecule_dict[u'InChI']
-        self.experimental_solvation_free_energy = molecule_dict[u'experimental_solvation_free_energy']
-        self.curation_trust = molecule_dict[u'curation_trust']
-        self.pdb_hetId = molecule_dict[u'pdb_hetId']
-        self.netcharge = molecule_dict[u'netcharge']
-        self.formula = molecule_dict[u'formula']
-        self.is_finished = molecule_dict[u'is_finished']
-        self.rnme = molecule_dict[u'rnme']
-#       
-
-    def download_file(self, **kwargs):
-        if u'molid' in kwargs: del kwargs[u'molid']
-        return self.api.Molecules.download_file(molid=self.molid, **kwargs)
-
-    def generate_mol_data(self, **kwargs):
-        if u'molid' in kwargs: del kwargs[u'molid']
-        return self.api.Molecules.generate_mol_data(molid=self.molid, **kwargs)
-
-# 
-
-    def __repr__(self):
-        self_dict = deepcopy(self.__dict__)
-        del self_dict[u'api']
-        return yaml.dump(self_dict)
 
 def test_api_client():
     api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au')
