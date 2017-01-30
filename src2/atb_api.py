@@ -12,18 +12,11 @@ import inspect
 from sys import stderr
 from requests import post
 from tempfile import TemporaryFile
-from typing import Any, List, Dict, Callable, Optional, Union, Tuple
 from itertools import imap
 
 
 MISSING_VALUE = Exception(u'Missing value')
 INCORRECT_VALUE = Exception(u'Incorrect value')
-
-ATB_MOLID = Union[unicode, int]
-
-ATB_OUTPUT = unicode
-
-API_RESPONSE = Dict[Any, Any]
 
 def stderr_write(a_str):
     stderr.write(u'API Client Debug: ' + a_str + u'\n')
@@ -48,7 +41,7 @@ class API(object):
     def encoded(self, something):
         if type(something) == dict:
             return dict((self.encoded(key), self.encoded(value)) for (key, value) in something.items())
-        elif type(something) in (unicode, int):
+        elif type(something) in (unicode, int, str):
             return something.encode(self.ENCODING)
         elif something == None:
             return something
