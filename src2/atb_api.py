@@ -104,14 +104,16 @@ class API(object):
                     ),
                     timeout=self.timeout,
                 )
-                response_content = response.read().decode()
+                if self.api_format == u'pickle':
+                    response_content = response.read()
+                else:
+                    response_content = response.read().decode()
         except Exception, e:
             stderr_write(u"Failed opening url: {0}{1}{2}".format(
                 url,
                 u'?' if data else u'',
                 urlencode(data) if data else u'',
             ))
-            #if e and 'fp' in e.__dict__: stderr_write( "Response was:\n\n{0}".format(e.fp.read().decode()) )
             raise e
         return response_content
 
@@ -144,7 +146,7 @@ class ATB_Mol(object):
         self.has_TI = molecule_dict[u'has_TI']
         self.iupac = molecule_dict[u'iupac']
         self.common_name = molecule_dict[u'common_name']
-        self.inchi = molecule_dict[u'InChI']
+        self.inchi_key = molecule_dict[u'inchi_key']
         self.experimental_solvation_free_energy = molecule_dict[u'experimental_solvation_free_energy']
         self.curation_trust = molecule_dict[u'curation_trust']
         self.pdb_hetId = molecule_dict[u'pdb_hetId']
@@ -152,6 +154,7 @@ class ATB_Mol(object):
         self.formula = molecule_dict[u'formula']
         self.is_finished = molecule_dict[u'is_finished']
         self.rnme = molecule_dict[u'rnme']
+        self.moltype = molecule_dict[u'moltype']
 # 
 
     def download_file(self, **kwargs):
@@ -269,7 +272,7 @@ class Molecules(API):
 
     def duplicated_inchis(self, **kwargs):
         response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
-        return self.api.deserialize(response_content)[u'InChIs']
+        return self.api.deserialize(response_content)[u'inchi_key']
 
     def generate_mol_data(self, **kwargs):
         response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u'GET')
@@ -283,16 +286,16 @@ class Molecules(API):
         data = self.api.deserialize(response_content)
         return ATB_Mol(self.api, data[u'molecule'])
 
-    def structure_search(self, **kwargs):
+    def structure_search(self, method = u'POST', **kwargs):
         assert all([ arg in kwargs for arg in (u'structure', u'netcharge', u'structure_format') ])
-        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=u"POST")
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=method)
         return self.api.deserialize(response_content)
 
 # 
 
-    def submit(self, **kwargs):
+    def submit(self, request=u'POST', **kwargs):
         assert all([ arg in kwargs for arg in (u'netcharge', u'pdb', u'public', u'moltype') ])
-        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs)
+        response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=request)
         return self.api.deserialize(response_content)
 
 # 
