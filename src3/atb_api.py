@@ -111,11 +111,12 @@ class API(object):
                     response_content = response.read()
                 else:
                     response_content = response.read().decode()
-        except Exception as e:
-            stderr_write("Failed opening url: {0}{1}{2}".format(
+        except HTTPError as e:
+            stderr_write('Failed opening url: "{0}{1}{2}". Response was: "{3}"'.format(
                 url,
                 '?' if data else '',
                 urlencode(data) if data else '',
+                e.read(),
             ))
             raise e
         return response_content
@@ -215,6 +216,8 @@ class RMSD(API):
                 assert ',' in kwargs['molids']
         response_content = self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method='POST')
         return self.api.deserialize(response_content)
+
+# 
 
 # 
 
