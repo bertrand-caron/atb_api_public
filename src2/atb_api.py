@@ -211,6 +211,11 @@ class Jobs(API):
             self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
         )[u'molids']
 
+    def release(self, **kwargs):
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
+        )[u'molids']
+
     def finished(self, molids, qm_logs, method = u'POST', **kwargs):
         return self.api.deserialize(
             self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=method),
