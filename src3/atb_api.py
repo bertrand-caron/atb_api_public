@@ -56,22 +56,28 @@ class API(object):
                 )
             )
 
-    def safe_urlopen(self, url: str, data: Dict[str, Any] = {}, method: str = 'GET') -> str:
-        data['api_token'] = self.api_token
-        data['api_format'] = self.api_format
+    def safe_urlopen(self, url: str, data: Union[Dict[str, Any], List[Tuple[str, Any]]] = {}, method: str = 'GET') -> str:
+        if isinstance(data, dict):
+            data_items = list(data.items())
+        elif type(data) in (tuple, list):
+            data_items = list(data)
+        else:
+            raise Exception('Unexpected type: {0}'.format(type(data)))
+
+        data_items += [('api_token', self.api_token), ('api_format', self.api_format)]
+
         try:
             if method == 'GET':
-                url = url + '?' + urlencode(data)
-                data = None
+                url = url + '?' + urlencode(data_items)
+                data_items = None
             elif method == 'POST':
                 url = url
-                data = data
             else:
                 raise Exception('Unsupported HTTP method: {0}'.format(method))
             if self.debug:
                 print('Querying: {url}'.format(url=url), file=stderr)
 
-            if method == 'POST' and any([isinstance(value, bytes) or 'read' in dir(value) for (key, value) in data.items()]):
+            if method == 'POST' and any([isinstance(value, bytes) or 'read' in dir(value) for (key, value) in data_items]):
                 def file_for(content):
                     '''Cast a content object to a file for request.post'''
                     if 'read' in dir(content):
@@ -87,7 +93,7 @@ class API(object):
                 files=dict(
                     [
                         (key, file_for(value))
-                        for (key, value) in data.items()
+                        for (key, value) in data_items
                     ]
                 )
 
@@ -103,7 +109,7 @@ class API(object):
                 response = urlopen(
                     Request(
                         url,
-                        data=self.encoded(urlencode(data),) if data else None,
+                        data=self.encoded(urlencode(data_items),) if data_items is not None else None,
                     ),
                     timeout=self.timeout,
                 )
@@ -114,8 +120,8 @@ class API(object):
         except HTTPError as e:
             stderr_write('Failed opening url: "{0}{1}{2}". Response was: "{3}"'.format(
                 url,
-                '?' if data else '',
-                urlencode(data) if data else '',
+                '?' if data_items else '',
+                urlencode(data_items) if data_items else '',
                 e.read(),
             ))
             raise e
@@ -133,6 +139,7 @@ class API(object):
         # API namespaces
         self.Molecules = Molecules(self)
         self.RMSD = RMSD(self)
+        self.Jobs = Jobs(self)
 # 
 
     def deserialize(self, an_object: Any) -> Any:
@@ -183,7 +190,34 @@ class ATB_Mol(object):
 
 # 
 
+class Jobs(API):
+    def __init__(self, api: API) -> None:
+        self.api = api
+
+    def url(self, api_endpoint: str) -> str:
+        return self.api.host + '/api/current/' + self.__class__.__name__.lower() + '/' + api_endpoint + '.py'
+
 # 
+
+    def get(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
+        )['jobs']
+
+    def new(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
+        )['molids']
+
+    def accept(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
+        )['molids']
+
+    def finished(self, molids: List[int], qm_logs: List[str], method: str = 'POST', **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=method),
+        )['accepted_molids']
 
 # 
 
