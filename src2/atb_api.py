@@ -216,9 +216,21 @@ class Jobs(API):
             self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs),
         )[u'molids']
 
-    def finished(self, molids, qm_logs, method = u'POST', **kwargs):
+    def finished(self, molids = [], qm_logs = [], current_qm_levels = [], method = u'POST', **kwargs):
         return self.api.deserialize(
-            self.api.safe_urlopen(self.url(inspect.stack()[0][3]), data=kwargs, method=method),
+            self.api.safe_urlopen(
+                self.url(inspect.stack()[0][3]),
+                data=(
+                    list(kwargs.items())
+                    +
+                    [(u'molid', molid) for molid in molids]
+                    +
+                    [(u'qm_log', qm_log) for qm_log in qm_logs]
+                    +
+                    [(u'current_qm_level', current_qm_level) for current_qm_level in current_qm_levels]
+                ),
+                method=method,
+            ),
         )[u'accepted_molids']
 
 # 
