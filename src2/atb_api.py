@@ -32,6 +32,12 @@ def deserializer_fct_for(api_format):
         raise Exception(u'Incorrect API serialization format.')
     return deserializer_fct
 
+def truncate_str_if_necessary(a_str, max_length = 1000):
+    if len(a_str) <= max_length:
+        return a_str
+    else:
+        return a_str[:1000] + u'...[truncated]'
+
 class API(object):
     HOST = u'https://atb.uq.edu.au'
     TIMEOUT = 45
@@ -118,7 +124,7 @@ class API(object):
             stderr_write(u'Failed opening url: "{0}{1}{2}". Response was: "{3}"'.format(
                 url,
                 u'?' if data_items else u'',
-                urlencode(data_items) if data_items else u'',
+                truncate_str_if_necessary(urlencode(data_items) if data_items else u''),
                 e.read(),
             ))
             raise e
