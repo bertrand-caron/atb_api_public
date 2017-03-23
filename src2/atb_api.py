@@ -38,6 +38,18 @@ def truncate_str_if_necessary(a_str, max_length = 1000):
     else:
         return a_str[:1000] + u'...[truncated]'
 
+def concat_dicts(*args):
+    return dict(
+        reduce(
+            lambda acc, e: acc + e,
+            [
+                list(a_dict.items())
+                for a_dict in args
+            ],
+            [],
+        ),
+    )
+
 class API(object):
     HOST = u'https://atb.uq.edu.au'
     TIMEOUT = 45
@@ -322,7 +334,7 @@ class Molecules(API):
             call_kwargs = dict([(key, value) for (key, value) in list(kwargs.items()) if key not in (u'atb_format',)])
             api_endpoint, extra_parameters = self.download_urls[atb_format]
             url = self.url(api_endpoint)
-            response_content = self.api.safe_urlopen(url, data=dict(list(call_kwargs.items()) + list(extra_parameters.items())), method=u'GET')
+            response_content = self.api.safe_urlopen(url, data=concat_dicts(extra_parameters, call_kwargs), method=u'GET')
             deserializer_fct = (self.api.deserializer_fct if atb_format == u'yml' else (lambda x: x))
         else:
             # Forward all the keyword arguments to download_file.py

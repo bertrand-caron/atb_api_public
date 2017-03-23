@@ -11,6 +11,7 @@ from sys import stderr
 from requests import post
 from tempfile import TemporaryFile
 from typing import Any, List, Dict, Callable, Optional, Union, Tuple
+from functools import reduce
 
 MISSING_VALUE = Exception('Missing value')
 INCORRECT_VALUE = Exception('Incorrect value')
@@ -40,6 +41,18 @@ def truncate_str_if_necessary(a_str: str, max_length: int = 1000) -> str:
         return a_str
     else:
         return a_str[:1000] + '...[truncated]'
+
+def concat_dicts(*args: List[Dict[Any, Any]]) -> Dict[Any, Any]:
+    return dict(
+        reduce(
+            lambda acc, e: acc + e,
+            [
+                list(a_dict.items())
+                for a_dict in args
+            ],
+            [],
+        ),
+    )
 
 class API(object):
     HOST = 'https://atb.uq.edu.au'
@@ -325,7 +338,7 @@ class Molecules(API):
             call_kwargs = dict([(key, value) for (key, value) in list(kwargs.items()) if key not in ('atb_format',)])
             api_endpoint, extra_parameters = self.download_urls[atb_format]
             url = self.url(api_endpoint)
-            response_content = self.api.safe_urlopen(url, data=dict(list(call_kwargs.items()) + list(extra_parameters.items())), method='GET')
+            response_content = self.api.safe_urlopen(url, data=concat_dicts(extra_parameters, call_kwargs), method='GET')
             deserializer_fct = (self.api.deserializer_fct if atb_format == 'yml' else (lambda x: x))
         else:
             # Forward all the keyword arguments to download_file.py
