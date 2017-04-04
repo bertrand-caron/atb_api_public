@@ -176,6 +176,7 @@ class ATB_Mol(object):
         self.has_TI = molecule_dict['has_TI']
         self.iupac = molecule_dict['iupac']
         self.common_name = molecule_dict['common_name']
+        self.inchi = molecule_dict['inchi']
         self.inchi_key = molecule_dict['inchi_key']
         self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
         self.curation_trust = molecule_dict['curation_trust']
