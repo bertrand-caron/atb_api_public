@@ -21,6 +21,19 @@ INCORRECT_VALUE = Exception(u'Incorrect value')
 def stderr_write(a_str):
     stderr.write(u'API Client Debug: ' + a_str + u'\n')
 
+def decode_if_necessary(x, encoding = u'utf8'):
+    if isinstance(x, unicode):
+        return x
+    elif isinstance(x, str):
+        try:
+            return x.decode(encoding)
+        except UnicodeDecodeError:
+            stderr_write(u'Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
+            return x
+    else:
+        raise Exception(u'Invalid input type: {0}'.format(type(x)))
+
+
 def deserializer_fct_for(api_format):
     if api_format == u'json':
         deserializer_fct = lambda x: json.loads(x)
@@ -133,11 +146,11 @@ class API(object):
                 else:
                     response_content = response.read().decode()
         except HTTPError, e:
-            stderr_write(u'Failed opening url: "{0}{1}{2}". Response was: "{3}"'.format(
+            stderr_write(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
                 url,
                 u'?' if data_items else u'',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else u''),
-                e.read(),
+                decode_if_necessary(e.read()),
             ))
             raise e
         return response_content

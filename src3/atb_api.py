@@ -25,6 +25,19 @@ API_RESPONSE = Dict[Any, Any]
 def stderr_write(a_str) -> None:
     stderr.write('API Client Debug: ' + a_str + '\n')
 
+def decode_if_necessary(x: Union[bytes, str], encoding: str = 'utf8') -> Union[str, bytes]:
+    if isinstance(x, str):
+        return x
+    elif isinstance(x, bytes):
+        try:
+            return x.decode(encoding)
+        except UnicodeDecodeError:
+            stderr_write('Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
+            return x
+    else:
+        raise Exception('Invalid input type: {0}'.format(type(x)))
+
+
 def deserializer_fct_for(api_format: str) -> Callable[[str], API_RESPONSE]:
     if api_format == 'json':
         deserializer_fct = lambda x: json.loads(x)
@@ -137,11 +150,11 @@ class API(object):
                 else:
                     response_content = response.read().decode()
         except HTTPError as e:
-            stderr_write('Failed opening url: "{0}{1}{2}". Response was: "{3}"'.format(
+            stderr_write('Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
                 url,
                 '?' if data_items else '',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else ''),
-                e.read(),
+                decode_if_necessary(e.read()),
             ))
             raise e
         return response_content
