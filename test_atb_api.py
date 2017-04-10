@@ -1,7 +1,8 @@
 from atb_api import API
 
-api = API(api_token='<your_api_token_here>', api_format='yaml') # Send an email to the ATB administrators to request an API token
-molecules = api.Molecules.search(any='ethanol')
+api = API(api_token='<your_api_token_here>', api_format='yaml')
+# Send an email to the ATB administrators to request an API token
+molecules = api.Molecules.search(any='ethanol', match_partial=False)
 
 for molecule in molecules:
     print(molecule.inchi)
