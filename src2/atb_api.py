@@ -287,6 +287,11 @@ class Jobs(API):
             ),
         )[u'accepted_molids']
 
+    def sync(self, method = u'GET', **kwargs):
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(), data=kwargs, method=method),
+        )
+
 # 
 
 # 

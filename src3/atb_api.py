@@ -291,6 +291,11 @@ class Jobs(API):
             ),
         )['accepted_molids']
 
+    def sync(self, method: str = 'GET', **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(
+            self.api.safe_urlopen(self.url(), data=kwargs, method=method),
+        )
+
 # 
 
 # 
