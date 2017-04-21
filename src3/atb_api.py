@@ -218,6 +218,7 @@ class ATB_Mol(object):
         self.is_finished = molecule_dict['is_finished']
         self.rnme = molecule_dict['rnme']
         self.moltype = molecule_dict['moltype']
+        self.compound_id = molecule_dict['compound_id']
 # 
 
     def download_file(self, **kwargs) -> Union[None, ATB_OUTPUT]:
