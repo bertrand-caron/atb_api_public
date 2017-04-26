@@ -8,32 +8,17 @@ import json
 import pickle
 from operator import itemgetter
 from copy import deepcopy
-from sys import stderr
+import sys
 from inspect import stack
-from sys import stderr
 from requests import post
 from tempfile import TemporaryFile
 from os.path import join
 from itertools import imap
 
-
 MISSING_VALUE = Exception(u'Missing value')
 INCORRECT_VALUE = Exception(u'Incorrect value')
 
-def stderr_write(a_str):
-    stderr.write(u'API Client Debug: ' + a_str + u'\n')
 
-def decode_if_necessary(x, encoding = u'utf8'):
-    if isinstance(x, unicode):
-        return x
-    elif isinstance(x, str):
-        try:
-            return x.decode(encoding)
-        except UnicodeDecodeError:
-            stderr_write(u'Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
-            return x
-    else:
-        raise Exception(u'Invalid input type: {0}'.format(type(x)))
 
 
 def deserializer_fct_for(api_format):
@@ -65,11 +50,28 @@ def concat_dicts(*args):
         ),
     )
 
+DEFAULT_DEBUG_STREAM = sys.stderr
+
 class API(object):
     HOST = u'https://atb.uq.edu.au'
     TIMEOUT = 45
     API_FORMAT = u'yaml'
     ENCODING = u'utf-8'
+
+    def write_to_debug_stream(self, a_str):
+        self.debug_stream.write(u'API Client Debug: ' + a_str + u'\n')
+
+    def decode_if_necessary(self, x, encoding = u'utf8'):
+        if isinstance(x, unicode):
+            return x
+        elif isinstance(x, str):
+            try:
+                return x.decode(encoding)
+            except UnicodeDecodeError:
+                self.write_to_debug_stream(u'Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
+                return x
+        else:
+            raise Exception(u'Invalid input type: {0}'.format(type(x)))
 
     def encoded(self, something):
         if type(something) == dict:
@@ -105,7 +107,7 @@ class API(object):
             else:
                 raise Exception(u'Unsupported HTTP method: {0}'.format(method))
             if self.debug:
-                print >>stderr, u'Querying: {url}'.format(url=url)
+                self.write_to_debug_stream(u'Querying {url}'.format(url=url))
 
             if method == u'POST' and any([isinstance(value, str) or u'read' in dir(value) for (key, value) in data_items]):
                 def file_for(content):
@@ -148,23 +150,24 @@ class API(object):
                 else:
                     response_content = response.read().decode()
         except HTTPError, e:
-            stderr_write(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
+            self.write_to_debug_stream(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
                 url,
                 u'?' if data_items else u'',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else u''),
-                decode_if_necessary(e.read()),
+                self.decode_if_necessary(e.read()),
             ))
             raise e
         except URLError, e:
             raise Exception([url, unicode(e)])
         return response_content
 
-    def __init__(self, host = HOST, api_token = None, debug = False, timeout = TIMEOUT, api_format = API_FORMAT):
+    def __init__(self, host = HOST, api_token = None, debug = False, timeout = TIMEOUT, api_format = API_FORMAT, debug_stream = DEFAULT_DEBUG_STREAM):
         # Attributes
         self.host = host
         self.api_token = api_token
         self.api_format = api_format
         self.debug = debug
+        self.debug_stream = debug_stream
         self.timeout = timeout
         self.deserializer_fct = deserializer_fct_for(api_format)
 
@@ -231,9 +234,12 @@ class ATB_Mol(object):
         return self.api.Molecules.job(molid=self.molid, **kwargs)
 
     def __repr__(self):
-        self_dict = deepcopy(self.__dict__)
-        del self_dict[u'api']
-        return yaml.dump(self_dict)
+        return yaml.dump(
+            dict((
+                key, value)
+                for (key, value) in self.__dict__.items()
+                if key not in [u'api'])
+        )
 
 # 
 
@@ -418,7 +424,7 @@ class Molecules(API):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'job']
 
 def test_api_client():
-    api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au')
+    api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au', debug_stream=sys.stderr)
 
     TEST_RMSD = True
     ETHANOL_MOLIDS = [15608, 23009, 26394]

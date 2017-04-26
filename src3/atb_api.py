@@ -6,9 +6,8 @@ import json
 import pickle
 from operator import itemgetter
 from copy import deepcopy
-from sys import stderr
+import sys
 from inspect import stack
-from sys import stderr
 from requests import post
 from tempfile import TemporaryFile
 from typing import Any, List, Dict, Callable, Optional, Union, Tuple
@@ -23,21 +22,6 @@ ATB_MOLID = Union[str, int]
 ATB_OUTPUT = str
 
 API_RESPONSE = Dict[Any, Any]
-
-def stderr_write(a_str) -> None:
-    stderr.write('API Client Debug: ' + a_str + '\n')
-
-def decode_if_necessary(x: Union[bytes, str], encoding: str = 'utf8') -> Union[str, bytes]:
-    if isinstance(x, str):
-        return x
-    elif isinstance(x, bytes):
-        try:
-            return x.decode(encoding)
-        except UnicodeDecodeError:
-            stderr_write('Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
-            return x
-    else:
-        raise Exception('Invalid input type: {0}'.format(type(x)))
 
 
 def deserializer_fct_for(api_format: str) -> Callable[[str], API_RESPONSE]:
@@ -69,11 +53,28 @@ def concat_dicts(*args: List[Dict[Any, Any]]) -> Dict[Any, Any]:
         ),
     )
 
+DEFAULT_DEBUG_STREAM = sys.stderr
+
 class API(object):
     HOST = 'https://atb.uq.edu.au'
     TIMEOUT = 45
     API_FORMAT = 'yaml'
     ENCODING = 'utf-8'
+
+    def write_to_debug_stream(self, a_str: str) -> None:
+        self.debug_stream.write('API Client Debug: ' + a_str + '\n')
+
+    def decode_if_necessary(self, x: Union[bytes, str], encoding: str = 'utf8') -> Union[str, bytes]:
+        if isinstance(x, str):
+            return x
+        elif isinstance(x, bytes):
+            try:
+                return x.decode(encoding)
+            except UnicodeDecodeError:
+                self.write_to_debug_stream('Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
+                return x
+        else:
+            raise Exception('Invalid input type: {0}'.format(type(x)))
 
     def encoded(self, something: Any) -> Union[Dict[bytes, Any], bytes, None]:
         if type(something) == dict:
@@ -109,7 +110,7 @@ class API(object):
             else:
                 raise Exception('Unsupported HTTP method: {0}'.format(method))
             if self.debug:
-                print('Querying: {url}'.format(url=url), file=stderr)
+                self.write_to_debug_stream('Querying {url}'.format(url=url))
 
             if method == 'POST' and any([isinstance(value, bytes) or 'read' in dir(value) for (key, value) in data_items]):
                 def file_for(content):
@@ -152,23 +153,24 @@ class API(object):
                 else:
                     response_content = response.read().decode()
         except HTTPError as e:
-            stderr_write('Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
+            self.write_to_debug_stream('Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
                 url,
                 '?' if data_items else '',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else ''),
-                decode_if_necessary(e.read()),
+                self.decode_if_necessary(e.read()),
             ))
             raise e
         except URLError as e:
             raise Exception([url, str(e)])
         return response_content
 
-    def __init__(self, host: str = HOST, api_token: Optional[str] = None, debug: bool = False, timeout: int = TIMEOUT, api_format: str = API_FORMAT) -> None:
+    def __init__(self, host: str = HOST, api_token: Optional[str] = None, debug: bool = False, timeout: int = TIMEOUT, api_format: str = API_FORMAT, debug_stream: Any = DEFAULT_DEBUG_STREAM) -> None:
         # Attributes
         self.host = host
         self.api_token = api_token
         self.api_format = api_format
         self.debug = debug
+        self.debug_stream = debug_stream
         self.timeout = timeout
         self.deserializer_fct = deserializer_fct_for(api_format)
 
@@ -235,9 +237,13 @@ class ATB_Mol(object):
         return self.api.Molecules.job(molid=self.molid, **kwargs)
 
     def __repr__(self) -> str:
-        self_dict = deepcopy(self.__dict__)
-        del self_dict['api']
-        return yaml.dump(self_dict)
+        return yaml.dump(
+            {
+                key: value
+                for (key, value) in self.__dict__.items()
+                if key not in ['api']
+            }
+        )
 
 # 
 
@@ -422,7 +428,7 @@ class Molecules(API):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))['job']
 
 def test_api_client():
-    api = API(api_token='<put your token here>', debug=True, api_format='yaml', host='https://atb.uq.edu.au')
+    api = API(api_token='<put your token here>', debug=True, api_format='yaml', host='https://atb.uq.edu.au', debug_stream=sys.stderr)
 
     TEST_RMSD = True
     ETHANOL_MOLIDS = [15608, 23009, 26394]
