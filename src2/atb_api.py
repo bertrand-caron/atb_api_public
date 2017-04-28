@@ -13,13 +13,17 @@ from inspect import stack
 from requests import post
 from tempfile import TemporaryFile
 from os.path import join
+from socket import timeout
 from itertools import imap
+from ssl import SSLError
+
 
 MISSING_VALUE = Exception(u'Missing value')
 INCORRECT_VALUE = Exception(u'Incorrect value')
 
 
 
+API_Timeout = timeout
 
 def deserializer_fct_for(api_format):
     if api_format == u'json':
@@ -88,7 +92,7 @@ class API(object):
                 )
             )
 
-    def safe_urlopen(self, url, data = {}, method = u'GET'):
+    def safe_urlopen(self, base_url, data = {}, method = u'GET', retry_number = 1):
         if isinstance(data, dict):
             data_items = list(data.items())
         elif type(data) in (tuple, list):
@@ -100,14 +104,14 @@ class API(object):
 
         try:
             if method == u'GET':
-                url = url + u'?' + urlencode(data_items)
+                full_url = base_url + u'?' + urlencode(data_items)
                 data_items = None
             elif method == u'POST':
-                url = url
+                full_url = base_url
             else:
                 raise Exception(u'Unsupported HTTP method: {0}'.format(method))
             if self.debug:
-                self.write_to_debug_stream(u'Querying {url}'.format(url=url))
+                self.write_to_debug_stream(u'Querying {url}'.format(url=full_url))
 
             if method == u'POST' and any([isinstance(value, str) or u'read' in dir(value) for (key, value) in data_items]):
                 def file_for(content):
@@ -130,7 +134,7 @@ class API(object):
                 )
 
                 request = post(
-                    url,
+                    full_url,
                     files=files,
                 )
                 response_content = request.text
@@ -140,7 +144,7 @@ class API(object):
             else:
                 response = urlopen(
                     Request(
-                        url,
+                        full_url,
                         data=self.encoded(urlencode(data_items),) if data_items is not None else None,
                     ),
                     timeout=self.timeout,
@@ -151,17 +155,27 @@ class API(object):
                     response_content = response.read().decode()
         except HTTPError, e:
             self.write_to_debug_stream(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
-                url,
+                full_url,
                 u'?' if data_items else u'',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else u''),
                 self.decode_if_necessary(e.read()),
             ))
             raise e
         except URLError, e:
-            raise Exception([url, unicode(e)])
+            raise Exception([full_url, unicode(e)])
+        except (API_Timeout, SSLError):
+            if retry_number == self.maximum_attempts:
+                if self.debug:
+                    self.write_to_debug_stream(u'API request timed out, and reached maximum attempts ({0}). Aborting ...'.format(self.maximum_attempts))
+                raise
+            else:
+                if self.debug:
+                    self.write_to_debug_stream(u'API request timed out, will try again (retry_number={0})'.format(retry_number))
+                return self.safe_urlopen(base_url, data=data, method=method, retry_number=retry_number + 1)
+
         return response_content
 
-    def __init__(self, host = HOST, api_token = None, debug = False, timeout = TIMEOUT, api_format = API_FORMAT, debug_stream = DEFAULT_DEBUG_STREAM):
+    def __init__(self, host = HOST, api_token = None, debug = False, timeout = TIMEOUT, api_format = API_FORMAT, debug_stream = DEFAULT_DEBUG_STREAM, maximum_attempts = 1):
         # Attributes
         self.host = host
         self.api_token = api_token
@@ -169,6 +183,7 @@ class API(object):
         self.debug = debug
         self.debug_stream = debug_stream
         self.timeout = timeout
+        self.maximum_attempts = maximum_attempts
         self.deserializer_fct = deserializer_fct_for(api_format)
 
         # API namespaces
@@ -424,7 +439,7 @@ class Molecules(API):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'job']
 
 def test_api_client():
-    api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au', debug_stream=sys.stderr)
+    api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au', debug_stream=sys.stderr, timeout=30, maximum_attempts=5)
 
     TEST_RMSD = True
     ETHANOL_MOLIDS = [15608, 23009, 26394]
