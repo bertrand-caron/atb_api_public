@@ -233,6 +233,9 @@ class ATB_Mol(object):
         self.rnme = molecule_dict[u'rnme']
         self.moltype = molecule_dict[u'moltype']
         self.compound_id = molecule_dict[u'compound_id']
+        self.qm_level = molecule_dict[u'qm_level']
+        self.maximum_qm_level = molecule_dict[u'maximum_qm_level']
+        self.chembl_id = molecule_dict[u'chembl_id']
 # 
 
     def download_file(self, **kwargs):
@@ -437,6 +440,9 @@ class Molecules(API):
 
     def job(self, **kwargs):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'job']
+
+    def molids_with_chembl_ids(self, **kwargs):
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'chembl_ids']
 
 def test_api_client():
     api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au', debug_stream=sys.stderr, timeout=30, maximum_attempts=5)
