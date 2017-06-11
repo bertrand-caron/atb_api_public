@@ -7,6 +7,7 @@ import yaml
 import json
 import pickle
 from operator import itemgetter
+from os import getpid
 from copy import deepcopy
 import sys
 from inspect import stack
@@ -14,6 +15,7 @@ from requests import post
 from tempfile import TemporaryFile
 from os.path import join
 from socket import timeout
+from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG, INFO, WARNING, ERROR, Logger
 from itertools import imap
 from ssl import SSLError
 
@@ -24,6 +26,21 @@ INCORRECT_VALUE = Exception(u'Incorrect value')
 
 
 API_Timeout = timeout
+
+DEFAULT_FORMATTER = Formatter(u'%(asctime)s -[%(levelname)s]: %(message)s  -->  (%(module)s.%(funcName)s: %(lineno)d)', datefmt=u'%d-%m-%Y %H:%M:%S')
+
+def get_log(unique_id, verbosity = 0, debug_stream = sys.stdout):
+    log = getLogger(unique_id)
+    if len(log.handlers) == 0:
+        ch = StreamHandler(stream=debug_stream)
+        ch.setLevel(DEBUG)
+        ch.setFormatter(DEFAULT_FORMATTER)
+        log.addHandler(ch)
+        log.setLevel(DEBUG)
+    else:
+        pass
+
+    return log
 
 def deserializer_fct_for(api_format):
     if api_format == u'json':
@@ -62,9 +79,6 @@ class API(object):
     API_FORMAT = u'yaml'
     ENCODING = u'utf-8'
 
-    def write_to_debug_stream(self, a_str):
-        self.debug_stream.write(u'API Client Debug: ' + a_str + u'\n')
-
     def decode_if_necessary(self, x, encoding = u'utf8'):
         if isinstance(x, unicode):
             return x
@@ -72,7 +86,7 @@ class API(object):
             try:
                 return x.decode(encoding)
             except UnicodeDecodeError:
-                self.write_to_debug_stream(u'Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
+                self.log.error(u'Could not decode output with encoding "{0}". Returning raw bytes...'.format(encoding))
                 return x
         else:
             raise Exception(u'Invalid input type: {0}'.format(type(x)))
@@ -111,7 +125,7 @@ class API(object):
             else:
                 raise Exception(u'Unsupported HTTP method: {0}'.format(method))
             if self.debug:
-                self.write_to_debug_stream(u'Querying {url}'.format(url=full_url))
+                self.log.debug(u'Querying {url}'.format(url=full_url))
 
             if method == u'POST' and any([isinstance(value, str) or u'read' in dir(value) for (key, value) in data_items]):
                 def file_for(content):
@@ -154,7 +168,7 @@ class API(object):
                 else:
                     response_content = response.read().decode()
         except HTTPError, e:
-            self.write_to_debug_stream(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
+            self.log.error(u'Failed opening url: "{0}{1}{2}".\nResponse was:\n"{3}"\n'.format(
                 full_url,
                 u'?' if data_items else u'',
                 truncate_str_if_necessary(urlencode(data_items) if data_items else u''),
@@ -163,14 +177,14 @@ class API(object):
             raise e
         except URLError, e:
             raise Exception([full_url, unicode(e)])
-        except (API_Timeout, SSLError):
+        except API_Timeout:
             if retry_number == self.maximum_attempts:
                 if self.debug:
-                    self.write_to_debug_stream(u'API request timed out, and reached maximum attempts ({0}). Aborting ...'.format(self.maximum_attempts))
+                    self.log.error(u'API request timed out, and reached maximum attempts ({0}). Aborting ...'.format(self.maximum_attempts))
                 raise
             else:
                 if self.debug:
-                    self.write_to_debug_stream(u'API request timed out, will try again (retry_number={0})'.format(retry_number))
+                    self.log.warning(u'API request timed out, will try again (retry_number={0})'.format(retry_number))
                 return self.safe_urlopen(base_url, data=data, method=method, retry_number=retry_number + 1)
 
         return response_content
@@ -182,6 +196,7 @@ class API(object):
         self.api_format = api_format
         self.debug = debug
         self.debug_stream = debug_stream
+        self.log = get_log(__name__ + unicode(getpid()), DEBUG, debug_stream)
         self.timeout = timeout
         self.maximum_attempts = maximum_attempts
         self.deserializer_fct = deserializer_fct_for(api_format)
@@ -366,6 +381,7 @@ class Molecules(API):
             u'mtb_ua': (u'download_file', dict(outputType=u'top', file=u'mtb_uniatom', ffVersion=u"54A7"),),
             u'itp_aa': (u'download_file', dict(outputType=u'top', file=u'rtp_allatom', ffVersion=u"54A7"),),
             u'itp_ua': (u'download_file', dict(outputType=u'top', file=u'rtp_uniatom', ffVersion=u"54A7"),),
+# 
         }
 
     def url(self, api_endpoint = None):
