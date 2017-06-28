@@ -2,6 +2,8 @@
 
 Author: Bertrand Caron
 
+[![DOI](https://zenodo.org/badge/86009503.svg)](https://zenodo.org/badge/latestdoi/86009503)
+
 ## Installation
 
 ```
