@@ -266,6 +266,9 @@ class ATB_Mol(object):
     def job(self, **kwargs):
         return self.api.Molecules.job(molid=self.molid, **kwargs)
 
+    def finished_job(self, **kwargs):
+        return self.api.Molecules.finished_job(molid=self.molid, **kwargs)
+
     def __repr__(self):
         return yaml.dump(
             dict((
@@ -457,8 +460,16 @@ class Molecules(API):
     def job(self, **kwargs):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'job']
 
+    def finished_job(self, **kwargs):
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))
+
     def molids_with_chembl_ids(self, **kwargs):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'chembl_ids']
+
+    def latest_topology_hash(self, **kwargs):
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))
+
+# 
 
 def test_api_client():
     api = API(api_token=u'<put your token here>', debug=True, api_format=u'yaml', host=u'https://atb.uq.edu.au', debug_stream=sys.stderr, timeout=30, maximum_attempts=5)
