@@ -16,6 +16,7 @@ from functools import reduce
 from os.path import join
 from socket import timeout
 from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG, INFO, WARNING, ERROR, Logger
+from functools import reduce
 
 MISSING_VALUE = Exception('Missing value')
 INCORRECT_VALUE = Exception('Incorrect value')
@@ -29,6 +30,16 @@ API_RESPONSE = Dict[Any, Any]
 API_Timeout = timeout
 
 DEFAULT_FORMATTER = Formatter('%(asctime)s -[%(levelname)s]: %(message)s  -->  (%(module)s.%(funcName)s: %(lineno)d)', datefmt='%d-%m-%Y %H:%M:%S')
+
+def add_dicts(*list_of_dicts: List[Dict[Any, Any]]) -> Dict[Any, Any]:
+    '''NB: Last dicts get precedence.'''
+    return dict(
+        reduce(
+            lambda acc, e: acc + list(e),
+            map(lambda d: d.items(), list_of_dicts),
+            [],
+        )
+    )
 
 def get_log(unique_id: str, verbosity: int = 0, debug_stream: Any = sys.stdout) -> Logger:
     log = getLogger(unique_id)
@@ -439,11 +450,25 @@ class Molecules(API):
 
 # 
 
-    def molid(self, molid: ATB_MOLID = None) -> ATB_Mol:
-        parameters = dict(molid=molid)
-        response_content = self.api.safe_urlopen(self.url(), data=parameters, method='GET')
+    def molid(self, molid: Optional[ATB_MOLID] = None, molids: Optional[List[ATB_MOLID]] = None, **kwargs: Dict[str, Any]) -> Union[ATB_Mol, List[ATB_Mol]]:
+        assert len([True for x in [molid, molids] if x is not None]) <= 1, 'Provide molid={0} or molids={1}; not both'.format(molid, molids)
+        if molid is not None:
+            parameters = dict(molid=molid)
+        elif molids is not None:
+            parameters = dict(molids=','.join(map(str, molids)))
+        else:
+            raise Exception('Provide either molid=X or molids=[X, Y]')
+        response_content = self.api.safe_urlopen(self.url(), data=add_dicts(parameters, kwargs), method='GET')
         data = self.api.deserialize(response_content)
-        return ATB_Mol(self.api, data['molecule'])
+        if molids is not None:
+            return [ATB_Mol(self.api, molecule_dict) for molecule_dict in data['molecules']]
+        elif molid is not None:
+            return ATB_Mol(self.api, data['molecule'])
+        else:
+            raise Exception('Unexpected')
+
+    def molids(self, **kwargs: Dict[str, Any]) -> List[ATB_Mol]:
+        return self.molid(**kwargs)
 
     def structure_search(self, method: str = 'POST', **kwargs) -> API_RESPONSE:
         assert all([ arg in kwargs for arg in ('structure', 'netcharge', 'structure_format') ])

@@ -29,6 +29,16 @@ API_Timeout = timeout
 
 DEFAULT_FORMATTER = Formatter(u'%(asctime)s -[%(levelname)s]: %(message)s  -->  (%(module)s.%(funcName)s: %(lineno)d)', datefmt=u'%d-%m-%Y %H:%M:%S')
 
+def add_dicts(*list_of_dicts):
+    u'''NB: Last dicts get precedence.'''
+    return dict(
+        reduce(
+            lambda acc, e: acc + list(e),
+            imap(lambda d: d.items(), list_of_dicts),
+            [],
+        )
+    )
+
 def get_log(unique_id, verbosity = 0, debug_stream = sys.stdout):
     log = getLogger(unique_id)
     if len(log.handlers) == 0:
@@ -437,11 +447,25 @@ class Molecules(API):
 
 # 
 
-    def molid(self, molid = None):
-        parameters = dict(molid=molid)
-        response_content = self.api.safe_urlopen(self.url(), data=parameters, method=u'GET')
+    def molid(self, molid = None, molids = None, **kwargs):
+        assert len([True for x in [molid, molids] if x is not None]) <= 1, u'Provide molid={0} or molids={1}; not both'.format(molid, molids)
+        if molid is not None:
+            parameters = dict(molid=molid)
+        elif molids is not None:
+            parameters = dict(molids=u','.join(imap(unicode, molids)))
+        else:
+            raise Exception(u'Provide either molid=X or molids=[X, Y]')
+        response_content = self.api.safe_urlopen(self.url(), data=add_dicts(parameters, kwargs), method=u'GET')
         data = self.api.deserialize(response_content)
-        return ATB_Mol(self.api, data[u'molecule'])
+        if molids is not None:
+            return [ATB_Mol(self.api, molecule_dict) for molecule_dict in data[u'molecules']]
+        elif molid is not None:
+            return ATB_Mol(self.api, data[u'molecule'])
+        else:
+            raise Exception(u'Unexpected')
+
+    def molids(self, **kwargs):
+        return self.molid(**kwargs)
 
     def structure_search(self, method = u'POST', **kwargs):
         assert all([ arg in kwargs for arg in (u'structure', u'netcharge', u'structure_format') ])
