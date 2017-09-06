@@ -493,6 +493,9 @@ class Molecules(API):
     def latest_topology_hash(self, **kwargs):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))
 
+    def lgf(self, **kwargs):
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))
+
 # 
 
 def test_api_client():
