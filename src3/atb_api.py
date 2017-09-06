@@ -497,8 +497,8 @@ class Molecules(API):
     def latest_topology_hash(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))
 
-    def lgf(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))
+    def lgf(self, method='POST', **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=method))
 
 # 
 
