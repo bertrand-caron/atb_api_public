@@ -497,6 +497,9 @@ class Molecules(API):
     def lgf(self, method=u'POST', **kwargs):
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=method))
 
+    def qm_data(self, **kwargs):
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=u'GET'))[u'qm_data']
+
 # 
 
 def test_api_client():

@@ -500,6 +500,9 @@ class Molecules(API):
     def lgf(self, method='POST', **kwargs: Dict[str, Any]) -> API_RESPONSE:
         return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=method))
 
+    def qm_data(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
+        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))['qm_data']
+
 # 
 
 def test_api_client():
