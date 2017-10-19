@@ -186,7 +186,7 @@ class API(object):
                 truncate_str_if_necessary(urlencode(data_items) if data_items else ''),
                 self.decode_if_necessary(e.read()),
             ))
-            raise e
+            raise
         except URLError as e:
             raise Exception([full_url, str(e)])
         except API_Timeout:
@@ -244,26 +244,8 @@ class API(object):
 class ATB_Mol(object):
     def __init__(self, api, molecule_dict: Dict[str, Any]) -> None:
         self.api = api
-        self.molid = molecule_dict['molid']
-        self.n_atoms = molecule_dict['atoms']
-        self.has_TI = molecule_dict['has_TI']
-        self.iupac = molecule_dict['iupac']
-        self.common_name = molecule_dict['common_name']
-        self.inchi = molecule_dict['inchi']
-        self.inchi_key = molecule_dict['inchi_key']
-        self.experimental_solvation_free_energy = molecule_dict['experimental_solvation_free_energy']
-        self.curation_trust = molecule_dict['curation_trust']
-        self.pdb_hetId = molecule_dict['pdb_hetId']
-        self.netcharge = molecule_dict['netcharge']
-        self.formula = molecule_dict['formula']
-        self.is_finished = molecule_dict['is_finished']
-        self.rnme = molecule_dict['rnme']
-        self.moltype = molecule_dict['moltype']
-        self.compound_id = molecule_dict['compound_id']
-        self.qm_level = molecule_dict['qm_level']
-        self.maximum_qm_level = molecule_dict['maximum_qm_level']
-        self.chembl_id = molecule_dict['chembl_id']
-# 
+        for (key, value) in molecule_dict.items():
+            setattr(self, key, value)
 
     def download_file(self, **kwargs) -> Union[None, ATB_OUTPUT]:
         if 'molid' in kwargs: del kwargs['molid']

@@ -242,26 +242,8 @@ class API(object):
 class ATB_Mol(object):
     def __init__(self, api, molecule_dict):
         self.api = api
-        self.molid = molecule_dict[u'molid']
-        self.n_atoms = molecule_dict[u'atoms']
-        self.has_TI = molecule_dict[u'has_TI']
-        self.iupac = molecule_dict[u'iupac']
-        self.common_name = molecule_dict[u'common_name']
-        self.inchi = molecule_dict[u'inchi']
-        self.inchi_key = molecule_dict[u'inchi_key']
-        self.experimental_solvation_free_energy = molecule_dict[u'experimental_solvation_free_energy']
-        self.curation_trust = molecule_dict[u'curation_trust']
-        self.pdb_hetId = molecule_dict[u'pdb_hetId']
-        self.netcharge = molecule_dict[u'netcharge']
-        self.formula = molecule_dict[u'formula']
-        self.is_finished = molecule_dict[u'is_finished']
-        self.rnme = molecule_dict[u'rnme']
-        self.moltype = molecule_dict[u'moltype']
-        self.compound_id = molecule_dict[u'compound_id']
-        self.qm_level = molecule_dict[u'qm_level']
-        self.maximum_qm_level = molecule_dict[u'maximum_qm_level']
-        self.chembl_id = molecule_dict[u'chembl_id']
-# 
+        for (key, value) in molecule_dict.items():
+            setattr(self, key, value)
 
     def download_file(self, **kwargs):
         if u'molid' in kwargs: del kwargs[u'molid']
