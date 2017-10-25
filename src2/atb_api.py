@@ -273,13 +273,6 @@ class ATB_Mol(object):
                 if key not in [u'api'])
         )
 
-# 
-
-# 
-
-
-# 
-
 class Jobs(API):
     def __init__(self, api):
         self.api = api
@@ -303,10 +296,6 @@ class Jobs(API):
                 method=method,
             ),
         )[u'accepted_molids']
-
-# 
-
-# 
 
 class RMSD(API):
     def __init__(self, api):
@@ -334,10 +323,6 @@ class RMSD(API):
                 assert u',' in kwargs[u'molids']
         response_content = self.api.safe_urlopen(self.url(), data=kwargs, method=u'POST')
         return self.api.deserialize(response_content)
-
-# 
-
-# 
 
 class Molecules(API):
     def __init__(self, api):
@@ -459,13 +444,6 @@ METHODS = {
         (u'release', u'molids', u'GET'),
         (u'sync', u'molids', u'GET'),
 # 
-    ],
-    Experimental_Solvation_Free_Energies: [
-        (u'set', None, u'GET'),
-        (u'molid', None, u'GET'),
-    ],
-    Validations: [
-        (u'set', None, u'GET'),
     ],
 # 
 }
