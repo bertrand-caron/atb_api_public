@@ -17,6 +17,7 @@ from os.path import join
 from socket import timeout
 from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG, INFO, WARNING, ERROR, Logger
 from functools import reduce
+from re import search
 
 MISSING_VALUE = Exception('Missing value')
 INCORRECT_VALUE = Exception('Incorrect value')
@@ -231,12 +232,15 @@ class API(object):
 
     def url(self, api_namespace: str, api_endpoint: Optional[str] = None) -> str:
         try:
+            api_method = (API.FUNCTION_NAME(API.TWO_FRAMES_ABOVE(stack())) if api_endpoint is None else api_endpoint) + '.py'
+            assert search('^[a-zA-Z0-9-_]+\.py$', api_method), api_method
+
             return join(
                 self.host,
                 'api',
                 'current',
                 api_namespace,
-                (API.FUNCTION_NAME(API.TWO_FRAMES_ABOVE(stack())) if api_endpoint is None else api_endpoint) + '.py',
+                api_method,
             )
         except IndexError as e:
             raise Exception('Invalid stack in API.url(): {0}. Error was: {1}'.format(stack(), str(e)))
@@ -286,28 +290,6 @@ class Jobs(API):
     def url(self, api_endpoint: Optional[str] = None) -> str:
         return self.api.url(self.__class__.__name__.lower(), api_endpoint=api_endpoint)
 
-# 
-
-    def get(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(
-            self.api.safe_urlopen(self.url(), data=kwargs),
-        )['jobs']
-
-    def new(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(
-            self.api.safe_urlopen(self.url(), data=kwargs),
-        )['molids']
-
-    def accept(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(
-            self.api.safe_urlopen(self.url(), data=kwargs),
-        )['molids']
-
-    def release(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(
-            self.api.safe_urlopen(self.url(), data=kwargs),
-        )['molids']
-
     def finished(self, molids: List[int] = [], qm_logs: List[str] = [], current_qm_levels: List[int] = [], method: str = 'POST', **kwargs: Dict[str, Any]) -> API_RESPONSE:
         return self.api.deserialize(
             self.api.safe_urlopen(
@@ -325,17 +307,11 @@ class Jobs(API):
             ),
         )['accepted_molids']
 
-    def sync(self, method: str = 'GET', **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(
-            self.api.safe_urlopen(self.url(), data=kwargs, method=method),
-        )
-
 # 
 
 # 
 
 class RMSD(API):
-
     def __init__(self, api: API) -> None:
         self.api = api
 
@@ -367,7 +343,6 @@ class RMSD(API):
 # 
 
 class Molecules(API):
-
     def __init__(self, api: API) -> None:
         self.api = api
         self.download_urls = {
@@ -423,14 +398,6 @@ class Molecules(API):
             deserializer_fct = lambda x: x
         return write_to_file_or_return(response_content, deserializer_fct)
 
-    def duplicated_inchis(self, **kwargs) -> API_RESPONSE:
-        response_content = self.api.safe_urlopen(self.url(), data=kwargs, method='GET')
-        return self.api.deserialize(response_content)['inchi_key']
-
-    def generate_mol_data(self, **kwargs) -> API_RESPONSE:
-        response_content = self.api.safe_urlopen(self.url(), data=kwargs, method='GET')
-        return self.api.deserialize(response_content)
-
 # 
 
     def molid(self, molid: Optional[ATB_MOLID] = None, molids: Optional[List[ATB_MOLID]] = None, **kwargs: Dict[str, Any]) -> Union[ATB_Mol, List[ATB_Mol]]:
@@ -467,25 +434,57 @@ class Molecules(API):
 
 # 
 
-    def job(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))['job']
-
-    def finished_job(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))
-
-    def molids_with_chembl_ids(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))['chembl_ids']
-
-    def latest_topology_hash(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))
-
-    def lgf(self, method='POST', **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method=method))
-
-    def qm_data(self, **kwargs: Dict[str, Any]) -> API_RESPONSE:
-        return self.api.deserialize(self.api.safe_urlopen(self.url(), data=kwargs, method='GET'))['qm_data']
-
 # 
+
+def get_maybe_key(d: Any, key: Optional[Any]) -> Any:
+    if key is None:
+        return d
+    else:
+        return d[key]
+
+METHODS = {
+    Molecules: [
+        ('job', 'job', 'GET'),
+        ('finished_job', None, 'GET'),
+        ('molids_with_chembl_ids', 'chembl_ids', 'GET'),
+        ('latest_topology_hash', None, 'GET'),
+        ('lgf', None, 'POST'),
+        ('qm_data', 'qm_data', 'GET'),
+        ('duplicated_inchis', 'inchi_key', 'GET'),
+        ('generate_mol_data', None, 'GET'),
+        ('output_file', 'output_file', 'GET'),
+# 
+    ],
+    Jobs: [
+        ('get', 'jobs', 'GET'),
+        ('new', 'molids', 'GET'),
+        ('accept', 'molids', 'GET'),
+        ('release', 'molids', 'GET'),
+        ('sync', 'molids', 'GET'),
+# 
+    ],
+    Experimental_Solvation_Free_Energies: [
+        ('set', None, 'GET'),
+        ('molid', None, 'GET'),
+    ],
+    Validations: [
+        ('set', None, 'GET'),
+    ],
+# 
+}
+
+for namespace in METHODS.keys():
+    for (function_name, maybe_key, default_method) in METHODS[namespace]:
+        function = lambda self, method=default_method, api_endpoint=function_name, maybe_key=maybe_key, function_name=function_name, **kwargs: get_maybe_key(
+            self.api.deserialize(self.api.safe_urlopen(self.url(api_endpoint=api_endpoint), data=kwargs, method=method)),
+            maybe_key,
+        )
+        function.__name__ = function_name
+        setattr(
+            namespace,
+            function_name,
+            function,
+        )
 
 def test_api_client():
     api = API(api_token='<put your token here>', debug=True, api_format='yaml', host='https://atb.uq.edu.au', debug_stream=sys.stderr, timeout=30, maximum_attempts=5)
