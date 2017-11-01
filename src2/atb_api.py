@@ -216,6 +216,7 @@ class API(object):
         self.Molecules = Molecules(self)
         self.RMSD = RMSD(self)
         self.Jobs = Jobs(self)
+        self.Statistics = Statistics(self)
 # 
 
     def deserialize(self, an_object):
@@ -416,6 +417,13 @@ class Molecules(API):
 
 # 
 
+class Statistics(API):
+    def __init__(self, api):
+        self.api = api
+
+    def url(self, api_endpoint = None):
+        return self.api.url(self.__class__.__name__.lower(), api_endpoint=api_endpoint)
+
 # 
 
 def get_maybe_key(d, key):
@@ -443,6 +451,10 @@ METHODS = {
         (u'accept', u'molids', u'GET'),
         (u'release', u'molids', u'GET'),
         (u'sync', u'molids', u'GET'),
+# 
+    ],
+    Statistics: [
+        (u'charge_distribution', u'data', u'GET'),
 # 
     ],
 # 
