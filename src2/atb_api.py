@@ -435,7 +435,7 @@ def get_maybe_key(d, key):
 METHODS = {
     Molecules: [
         (u'job', u'job', u'GET'),
-        (u'finished_job', None, u'GET'),
+        (u'finished_job', None, u'POST'),
         (u'molids_with_chembl_ids', u'chembl_ids', u'GET'),
         (u'latest_topology_hash', None, u'GET'),
         (u'lgf', None, u'POST'),
@@ -443,6 +443,7 @@ METHODS = {
         (u'duplicated_inchis', u'inchi_key', u'GET'),
         (u'generate_mol_data', None, u'GET'),
         (u'output_file', u'output_file', u'GET'),
+        (u'download_files', u'data', u'GET'),
 # 
     ],
     Jobs: [
@@ -478,6 +479,7 @@ def test_api_client():
 
     TEST_RMSD = True
     ETHANOL_MOLIDS = [15608, 23009, 26394]
+    print api.Molecules.download_files(molids=ETHANOL_MOLIDS, outputType=u'top', ffVersion=u'54A7', file=u'graph.lgf')
 
 # 
 
