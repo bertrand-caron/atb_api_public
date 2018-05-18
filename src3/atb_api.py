@@ -335,6 +335,7 @@ class Molecules(API):
             'pdb_aa': ('download_file', dict(outputType='top', file='pdb_allatom_optimised', ffVersion="54A7"),),
             'pdb_allatom_unoptimised': ('download_file', dict(outputType='top', file='pdb_allatom_unoptimised', ffVersion="54A7"),),
             'pdb_ua': ('download_file', dict(outputType='top', file='pdb_uniatom_optimised', ffVersion="54A7"),),
+            'pdb_uniatom_unoptimised': ('download_file', dict(outputType='top', file='pdb_uniatom_unoptimised', ffVersion="54A7"),),
             'yml': ('generate_mol_data', dict(),),
             'lgf': ('download_file', dict(outputType='top', file='graph.lgf', ffVersion="54A7"),),
             'mtb_aa': ('download_file', dict(outputType='top', file='mtb_allatom', ffVersion="54A7"),),
